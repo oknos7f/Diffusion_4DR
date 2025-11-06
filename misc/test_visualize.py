@@ -3,12 +3,14 @@ import os
 import utils.data_processing as ct
 import matplotlib.pyplot as plt
 
-path = "../dataset/data/conditions/    "
+path = "../dataset/data/conditions/"
 files = [path + i for i in os.listdir(path)]
-print(files[0])
 
-data = np.load(files[0])[0]
-data = ct.polar_to_cartesian(data, threshold=0.1)
+data_path = files[700]
+print(data_path)
+
+data = np.load(data_path, mmap_mode='r')
+data = ct.polar_to_cartesian(data, threshold=99)
 
 print(data[0])
 

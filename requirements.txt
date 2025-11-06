@@ -11,3 +11,4 @@ einops
 PIL
 PyYAML
 torch
+torchvision
