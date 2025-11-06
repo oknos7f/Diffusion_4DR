@@ -1,0 +1,13 @@
+easydict
+tensorboard
+opencv-python
+nms
+spconv-cu113
+setuptools
+PyQt5
+scikit-image
+numba
+einops
+PIL
+PyYAML
+torch

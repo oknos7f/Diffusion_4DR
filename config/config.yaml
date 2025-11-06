@@ -1,0 +1,6 @@
+dataset:
+  data_root: "dataset/data"
+  image_dir: "images"
+  condition_dir: "conditions"
+
+  image_size: 512
