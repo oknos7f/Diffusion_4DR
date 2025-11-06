@@ -1,21 +1,4 @@
 import numpy as np
-import PIL.Image as Image
-
-
-
-def crop_image_half(image: Image.Image, left: bool = False) -> Image.Image:
-    """
-    PIL Image의 좌/우 절반을 잘라 반환합니다.
-    """
-    if not hasattr(image, "size"):
-        raise TypeError("`image`는 PIL Image 여야 합니다.")
-    width, height = image.size
-    half_width = width // 2
-
-    if left:
-        return image.crop((0, 0, half_width, height))
-    else:
-        return image.crop((half_width, 0, width, height))
 
 
 def normalization(points: np.ndarray, threshold: float = 0.3) -> np.ndarray:
@@ -77,7 +60,7 @@ def polar_to_cartesian(data: np.ndarray,
     rho_1d = np.linspace(0.0, distance - 1.0, distance)
     # theta를 양/음 대칭으로 배치 (degrees)
     theta_max_deg = (theta - 1) / 2.0
-    theta_1d = np.deg2rad(np.linspace(theta_max_deg, -theta_max_deg, theta))
+    theta_1d = np.deg2rad(np.linspace(-theta_max_deg, theta_max_deg, theta))
     # phi는 0..height-1을 degree로 간주 (원래 코드 유지)
     phi_1d = np.deg2rad(np.linspace(0.0, height - 1.0, height))
 
@@ -109,12 +92,3 @@ def polar_to_cartesian(data: np.ndarray,
         return normalization(cartesian_points, threshold=threshold_dB)
     else:
         return cartesian_points
-
-
-if __name__ == "__main__":  # simple test
-    image_path = "../dataset/data/images/0500734.png"
-    img = Image.open(image_path)
-    print(img.size)  # (2560, 720) 등
-    result = crop_image_half(img)
-    print(result.size)  # (1280, 720) 등
-    result.show()
