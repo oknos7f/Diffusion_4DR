@@ -1,25 +1,30 @@
 import torch
 import torch.nn as nn
 from typing import List
+import yaml
 
 from blocks import DoubleConv, Down, Up, OutConv
 
 
+def load_config(config_path: str) -> dict:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
+
 class UNet2D(nn.Module):
     """
-    2D U-Net implementation. (Replaced 3D with 2D ops)
-
-    Args:
-      in_channels: input channels (e.g., 3 for RGB)
-      out_channels: number of output channels (e.g., 3 for predicted noise)
-      base_channels: number of filters at first level (will double each down)
-      depth: how many down/up levels (default 4)
-      use_transpose: whether to use ConvTranspose2d for upsampling
+    2D U-Net implementation
     """
-    def __init__(self, in_channels: int = 4, out_channels: int = 4, base_channels: int = 64,
-                 depth: int = 4):
+    def __init__(self, config_path: str):
         super().__init__()
-        self.depth = depth
+        
+        self.config = load_config(config_path)['unet']
+        
+        in_channels = int(self.config.get('in_channels', 4))
+        out_channels = int(self.config.get('out_channels', 4))
+        base_channels = int(self.config.get('base_channels', 64))
+        depth = int(self.config.get('depth', 4))
 
         # Encoder path
         self.inc = DoubleConv(in_channels, base_channels)

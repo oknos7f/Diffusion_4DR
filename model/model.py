@@ -1,25 +1,41 @@
 import torch
 import torch.nn as nn
 from typing import List
+import yaml
 
 from condition import ConditionProjector
 from blocks import DoubleConv, Down, Up, OutConv
 from attention import ConditionalBlock
+
+
+def load_config(config_path: str) -> dict:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
+
 
 class UNet2DConditional(nn.Module):
     """
     2D U-Net with Cross-Attention for Conditional Input (LDM style).
     """
     
-    def __init__(self, in_channels: int = 4, out_channels: int = 4, base_channels: int = 64,
-                 depth: int = 4, context_dim: int = 512):
+    def __init__(self, config_path: str):
         super().__init__()
+        
+        self.config = load_config(config_path)['unet']
+        
+        in_channels = int(self.config.get('in_channels', 4))
+        out_channels = int(self.config.get('out_channels', 4))
+        base_channels = int(self.config.get('base_channels', 64))
+        depth = int(self.config.get('depth', 4))
+        context_dim = int(self.config.get('context_dim', 512))
+        
         self.depth = depth
         self.context_dim = context_dim
         
         # Condition Projector
         # Assuming the sparse input (x, y, z, value) is batched as (B, N, 4)
-        self.cond_proj = ConditionProjector(in_features=4, context_dim=context_dim)
+        self.cond_proj = ConditionProjector('configs/config.yaml')
         
         # Encoder path
         self.inc = DoubleConv(in_channels, base_channels)
@@ -32,13 +48,13 @@ class UNet2DConditional(nn.Module):
             chs *= 2
             # Cross-Attention block after each Down/DoubleConv (except first and last)
             # Standard LDM often places attention in the residual blocks or bottlenecks.
-            attns.append(ConditionalBlock(chs, context_dim))
+            attns.append(ConditionalBlock(config_path))
         
         self.downs = nn.ModuleList(downs)
         self.attns = nn.ModuleList(attns)
         
         # Bottleneck (Optional: Add ConditionalBlock here too)
-        self.bottleneck_attn = ConditionalBlock(chs, context_dim)
+        self.bottleneck_attn = ConditionalBlock(config_path)
         
         # Decoder path
         ups: List[nn.Module] = []

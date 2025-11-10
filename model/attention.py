@@ -1,6 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import yaml
+
+
+def load_config(config_path: str) -> dict:
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    return config
 
 
 class CrossAttention(nn.Module):
@@ -10,7 +17,7 @@ class CrossAttention(nn.Module):
     K, V (Key, Value): Conditional Input (context)
     """
     
-    def __init__(self, query_dim: int, context_dim: int, num_heads: int = 8, dropout: float = 0.0):
+    def __init__(self, query_dim: int, context_dim: int, num_heads: int, dropout: float):
         super().__init__()
         self.num_heads = num_heads
         self.head_dim = query_dim // num_heads
@@ -59,13 +66,27 @@ class CrossAttention(nn.Module):
 
 class ConditionalBlock(nn.Module):
     """
-    Combines DoubleConv block with Residual connection and Cross-Attention.
+    Combines block with Residual connection and Cross-Attention (Diffusion style).
+    Uses GroupNorm-Attention/FFN-Residual structure (Pre-Norm).
     """
     
-    def __init__(self, ch: int, context_dim: int):
+    def __init__(self, config_path: str):
         super().__init__()
+        
+        # ... (config loading parts are the same) ...
+        self.config = load_config(config_path)['attention']
+        ch = int(self.config.get('ch', 256))
+        context_dim = int(self.config.get('context_dim', 512))
+        num_heads = int(self.config.get('num_heads', 8))
+        dropout = float(self.config.get('dropout', 0.0))
+        
+        # GroupNorm은 (B, C, H, W)에 적용됩니다.
+        # GroupNorm의 그룹 수는 보통 32가 사용됩니다.
         self.norm1 = nn.GroupNorm(32, ch)
-        self.attention = CrossAttention(query_dim=ch, context_dim=context_dim)
+        self.attention = CrossAttention(query_dim=ch,
+                                        context_dim=context_dim,
+                                        num_heads=num_heads,
+                                        dropout=dropout)
         self.norm2 = nn.GroupNorm(32, ch)
         self.linear_feedforward = nn.Sequential(
             nn.Linear(ch, ch * 4),
@@ -77,33 +98,41 @@ class ConditionalBlock(nn.Module):
         # x: (B, C, H, W)
         B, C, H, W = x.shape
         
-        # Reshape for Attention: (B, C, H, W) -> (B, H*W, C)
-        x_flat = x.view(B, C, -1).transpose(1, 2)  # (B, H*W, C)
+        # 1. Cross-Attention with Residual connection (Pre-Norm style)
+        residual_attn = x  # Residual 연결을 위한 원본 (B, C, H, W)
         
-        # 1. Self-Attention (or Identity in this minimal example) is often here,
-        #    but we focus on Cross-Attention integration first.
+        # A. Norm
+        normed_x = self.norm1(x)
         
-        # 2. Cross-Attention with Residual connection
-        # (B, H*W, C) + CrossAttention(Norm(B, H*W, C), context)
-        # Note: GroupNorm needs (B, C, H, W) input, so we apply it on the original feature map.
+        # B. Reshape for Attention: (B, C, H, W) -> (B, H*W, C)
+        normed_x_flat = normed_x.view(B, C, -1).transpose(1, 2)  # (B, L, C)
         
-        # Cross-Attention path (Applying Norm before Q projection for attention input)
-        # Applying Norm on the flattened input for simplicity (often it is applied before Q projection)
-        normed_x_flat = self.norm1(x).view(B, C, -1).transpose(1, 2)
+        # C. Attention
+        attn_output = self.attention(normed_x_flat, context)  # (B, L, C)
         
-        attn_output = self.attention(normed_x_flat, context)
+        # D. Add (Residual): (B, C, H, W) -> (B, L, C) 변환 후 더하기
+        # x를 Flatten해서 더합니다.
+        x_attn_flat = residual_attn.view(B, C, -1).transpose(1, 2) + attn_output  # (B, L, C)
         
-        # Residual connection
-        x_attn = x_flat + attn_output
+        # ------------------------------------------------------------------
         
-        # 3. Feed-Forward Network (FFN) with Residual connection
-        # (B, H*W, C) + FFN(Norm(B, H*W, C))
-        normed_x_attn = self.norm2(x_attn.transpose(1, 2).view(B, C, H, W)).view(B, C, -1).transpose(1, 2)
-        ff_output = self.linear_feedforward(normed_x_attn)
+        # 2. Feed-Forward Network (FFN) with Residual connection (Pre-Norm style)
+        residual_ffn = x_attn_flat  # Residual 연결을 위한 Attention 출력 (B, L, C)
         
-        x_out = x_attn + ff_output
+        # E. Norm: (B, L, C) -> (B, C, L) -> (B, C, H, W) -> Norm -> (B, C, H, W)
+        # FFN에 들어가기 전 다시 GroupNorm을 적용합니다.
+        normed_x_attn = self.norm2(x_attn_flat.transpose(1, 2).view(B, C, H, W))
         
-        # Reshape back to feature map: (B, H*W, C) -> (B, C, H, W)
-        x_out = x_out.transpose(1, 2).view(B, C, H, W)
+        # F. Reshape back for FFN: (B, C, H, W) -> (B, L, C)
+        normed_x_attn_flat = normed_x_attn.view(B, C, -1).transpose(1, 2)  # (B, L, C)
+        
+        # G. FFN
+        ff_output = self.linear_feedforward(normed_x_attn_flat)  # (B, L, C)
+        
+        # H. Add (Residual)
+        x_out_flat = residual_ffn + ff_output  # (B, L, C)
+        
+        # I. Reshape back to feature map: (B, L, C) -> (B, C, H, W)
+        x_out = x_out_flat.transpose(1, 2).view(B, C, H, W)
         
         return x_out
