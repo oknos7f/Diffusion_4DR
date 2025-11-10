@@ -12,3 +12,4 @@ PIL
 PyYAML
 torch
 torchvision
+matplotlib

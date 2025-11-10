@@ -1,7 +1,7 @@
 import os
 from torch.utils.data import DataLoader
 
-from dataset.KRadar_dataset import KRadarDataset
+from model.KRadar_dataset import KRadarDataset
 
 
 config_file_path = 'config/config.yaml'
@@ -21,5 +21,4 @@ for batch in train_dataloader:
     print(f"Image Tensor Shape: {images.shape}, Dtype: {images.dtype}")
     print(f"Condition Tensor Shape: {conditions.shape}, Dtype: {conditions.dtype}")
     
-    # 여기서 VAE 인코딩 및 U-Net 훈련을 시작하면 됩니다.
-    break
+    

@@ -1,19 +1,18 @@
 import numpy as np
 import os
 import utils.data_processing as ct
-import utils.voxelization as vox
 import matplotlib.pyplot as plt
 
 
 path = "../dataset/data/conditions/"
 files = [path + i for i in os.listdir(path)]
 
-data_path = files[700]
+data_path = files[620]
 print(data_path)
 
 data = np.load(data_path, mmap_mode='r')
 data = ct.polar_to_cartesian(data, threshold=99)
-data = vox.voxelize(data)
+data = ct.voxelize(data, agg='max')
 
 print(data.shape)
 

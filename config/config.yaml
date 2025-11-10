@@ -2,5 +2,7 @@ dataset:
   data_root: "dataset/data"
   image_dir: "images"
   condition_dir: "conditions"
+  condition_threshold: 99
 
-  image_size: 512
+  target_width: 1280
+  target_height: 720
