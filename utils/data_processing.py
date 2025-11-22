@@ -9,7 +9,7 @@ import PIL.Image as Image
 # data = ct.voxelize(data, agg='max')
 
 
-def crop_image_half(image: Image.Image, left: bool = False) -> Image.Image:
+def crop_image_half(image: Image.Image, left: bool = True) -> Image.Image:
     """
     PIL Image의 좌/우 절반을 잘라 반환합니다.
     """
@@ -24,11 +24,12 @@ def crop_image_half(image: Image.Image, left: bool = False) -> Image.Image:
         return image.crop((half_width, 0, width, height))
 
 
-def normalization(points: np.ndarray, threshold: float = 0.3) -> np.ndarray:
+def normalization_value(points: np.ndarray, threshold: float = 0.3) -> np.ndarray:
     if points.ndim != 2 or points.shape[1] < 4:
         raise ValueError("입력은 (N, >=4) 형태의 numpy 배열이어야 합니다.")
     
-    print(threshold)
+    # print(threshold)
+    
     # 1. Threshold 적용 (threshold 이상인 포인트만 남김)
     mask_threshold = points[:, 3] >= threshold
     arr = points[mask_threshold].copy()
@@ -57,7 +58,8 @@ def polar_to_cartesian(data: np.ndarray,
                        distance: int = None,
                        theta: int = None,
                        height: int = None,
-                       threshold: float = 0.3) -> np.ndarray:
+                       threshold: float = 99,
+                       coord_normalize: bool = False) -> np.ndarray:
     """
     polar(거리, 각도, 고도) 형태의 3D 그리드 데이터를 Cartesian 포인트 클라우드 (N,4)로 변환.
     - data: numpy ndarray, shape (D, T, H) 또는 (distance, theta, height)
@@ -109,15 +111,25 @@ def polar_to_cartesian(data: np.ndarray,
         z.flatten(),
         values
     ], axis=-1)
-
+    
+    if coord_normalize:
+        # 좌표 정규화 (-1 ~ 1)
+        x_min, x_max = 0.0, 255.0
+        y_min, y_max = -203.7, 203.7
+        z_min, z_max = 0.0, 149.9
+        
+        cartesian_points[:, 0] = ((cartesian_points[:, 0] - x_min) / (x_max - x_min)) * 2.0 - 1.0
+        cartesian_points[:, 1] = ((cartesian_points[:, 1] - y_min) / (y_max - y_min)) * 2.0 - 1.0
+        cartesian_points[:, 2] = ((cartesian_points[:, 2] - z_min) / (z_max - z_min)) * 2.0 - 1.0
+        
     if threshold and threshold > 0.0:
-        return normalization(cartesian_points, threshold=threshold_dB)
+        return normalization_value(cartesian_points, threshold=threshold_dB)
     else:
         return cartesian_points
 
 
 def voxelize(points: np.ndarray,
-             voxel_size: Sequence[float] = (1.0, 1.0, 1.0),
+             voxel_size: Sequence[float] = (0.01, 0.01, 0.01),
              grid_range: Optional[Sequence[float]] = None,
              agg: str = "max") -> np.ndarray:
     """

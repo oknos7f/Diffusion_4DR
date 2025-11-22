@@ -17,9 +17,25 @@ def load_config(config_path: str) -> dict:
 
 class KRadarDataset(Dataset):
     """
-    Dataset that loads RGB images (.png) and condition numpy (.npy) files.
-    Images are preprocessed with dp.crop_image_half and standard LDM transforms.
-    Conditions are loaded with numpy and preprocessed with dp.polar_to_cartesian.
+    A PyTorch Dataset for loading perfectly aligned RGB images (.png) and
+    corresponding condition data stored as NumPy arrays (.npy).
+    
+    The **RGB images** are preprocessed using `dp.crop_image_half` followed by
+    standard Latent Diffusion Model (LDM) transformations.
+    
+    The **condition data** is loaded via NumPy and subsequently processed with
+    `dp.voxelize (N, 4)`.
+    
+    ---
+    
+    **NOTE on `dp.voxelize` Output (Target Matrix Value Ranges):**
+    The output matrix from `dp.voxelize` has the following theoretical value ranges:
+    
+    * **N (Integer):** [0, 10136]  # Number of Points
+    * **x (float32):** [0.0, 255.0]  # Forward coordinate
+    * **y (float32):** [-203.7, 203.7] # Horizontal coordinate
+    * **z (float32):** [0.0, 149.9]  # Vertical coordinate
+    * **value (float32):** [0.0, 1.0] # Normalized value
     """
     def __init__(self, config_path: str):
         self.config = load_config(config_path)['dataset']
@@ -27,9 +43,12 @@ class KRadarDataset(Dataset):
         self.data_root = Path(self.config['data_root'])
         self.image_dir = self.data_root / self.config['image_dir']
         self.condition_dir = self.data_root / self.config['condition_dir']
+        
+        self.threshold = self.config['condition_threshold']
+        self.max_points = self.config['max_points']
 
-        self.target_width = int(self.config.get('target_width', 1280))
-        self.target_height = int(self.config.get('target_height', 720))
+        self.target_width = self.config.get('target_width', 1280)
+        self.target_height = self.config.get('target_height', 720)
 
         image_paths = list(self.image_dir.glob('*.png'))
         self.file_stems = [p.stem for p in image_paths]
@@ -69,15 +88,32 @@ class KRadarDataset(Dataset):
 
         polar_matrix = np.load(condition_path).astype(np.float32)
 
-        # convert polar grid -> cartesian points (N,4)
-        cartesian_matrix = dp.polar_to_cartesian(polar_matrix, threshold=self.config['condition_threshold'])
-        voxelized_matrix = dp.voxelize(cartesian_matrix, agg='max')
+        # convert polar grid -> voxel points (M, 4), N은 약 1400~9800 가변
+        cartesian_matrix = dp.polar_to_cartesian(polar_matrix, threshold=self.threshold, coord_normalize=True)
+        voxel_points = dp.voxelize(cartesian_matrix, agg='max')
+        num_points = voxel_points.shape[0]
         
-        # to torch tensor (float)
-        condition_tensor = torch.from_numpy(voxelized_matrix).float()
+        if num_points == 0:
+            raise Exception(f"유효한 데이터가 아닙니다: {condition_path}")
+        elif num_points >= self.max_points:
+            # random sampling if too many points
+            # consider slice by value(Intensity) later maybe
+            choice_idx = np.random.choice(num_points, self.max_points, replace=False)
+            fixed_points = voxel_points[choice_idx, :]
+        else:
+            # duplicate points if too few points
+            choice_idx = np.random.choice(num_points, self.max_points, replace=True)
+            fixed_points = voxel_points[choice_idx, :]
+            
+            # consider Zero padding later
+            # fixed_points = np.zeros((self.max_points, 4), dtype=np.float32)
+            # fixed_points[:num_points, :] = voxel_points
+        
+        
+        condition_tensor = torch.from_numpy(fixed_points).float()
 
         return {
-            'image': image_tensor,          # (3, H, W)
-            'condition': condition_tensor,  # (N, 4)
+            'image': image_tensor,          # (3, 720, 1280)
+            'condition': condition_tensor,  # (2048, 4)
             'file_stem': stem
         }
