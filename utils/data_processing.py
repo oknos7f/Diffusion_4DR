@@ -3,6 +3,12 @@ from typing import Optional, Sequence, Tuple
 import PIL.Image as Image
 
 
+# example usage:
+# data = np.load(data_path, mmap_mode='r')
+# data = ct.polar_to_cartesian(data, threshold=99)
+# data = ct.voxelize(data, agg='max')
+
+
 def crop_image_half(image: Image.Image, left: bool = False) -> Image.Image:
     """
     PIL Image의 좌/우 절반을 잘라 반환합니다.
