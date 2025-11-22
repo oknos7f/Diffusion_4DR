@@ -15,7 +15,7 @@ data_path = files[num - 34]
 print(data_path)
 
 data = np.load(data_path, mmap_mode='r')
-data = ct.polar_to_cartesian(data, threshold=99, normalize_coord=True)
+data = ct.polar_to_cartesian(data, threshold=99, coord_normalize=True)
 data = ct.voxelize(data, agg='max')
 
 print(data.shape)

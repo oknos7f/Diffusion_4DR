@@ -1,15 +1,12 @@
+spconv-cu130
 torch
-diffusers[torch]
-spconv-cu113 # for CUDA 11.3, change to spconv-cu116 for CUDA 11.6, etc.
-
 torchvision
+diffusers[torch]
 opencv-python
 scikit-image
-
 numba
 einops
 nms
-
 matplotlib
 pillow
 tensorboard

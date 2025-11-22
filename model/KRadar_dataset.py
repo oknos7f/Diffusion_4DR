@@ -25,17 +25,6 @@ class KRadarDataset(Dataset):
     
     The **condition data** is loaded via NumPy and subsequently processed with
     `dp.voxelize (N, 4)`.
-    
-    ---
-    
-    **NOTE on `dp.voxelize` Output (Target Matrix Value Ranges):**
-    The output matrix from `dp.voxelize` has the following theoretical value ranges:
-    
-    * **N (Integer):** [0, 10136]  # Number of Points
-    * **x (float32):** [0.0, 255.0]  # Forward coordinate
-    * **y (float32):** [-203.7, 203.7] # Horizontal coordinate
-    * **z (float32):** [0.0, 149.9]  # Vertical coordinate
-    * **value (float32):** [0.0, 1.0] # Normalized value
     """
     def __init__(self, config_path: str):
         self.config = load_config(config_path)['dataset']
@@ -47,8 +36,8 @@ class KRadarDataset(Dataset):
         self.threshold = self.config['condition_threshold']
         self.max_points = self.config['max_points']
 
-        self.target_width = self.config.get('target_width', 1280)
-        self.target_height = self.config.get('target_height', 720)
+        self.target_width = self.config.get('target_width', 680)
+        self.target_height = self.config.get('target_height', 384)
 
         image_paths = list(self.image_dir.glob('*.png'))
         self.file_stems = [p.stem for p in image_paths]
@@ -56,10 +45,9 @@ class KRadarDataset(Dataset):
         if not self.file_stems:
             raise FileNotFoundError(f"이미지 파일이 {self.image_dir} 경로에 없습니다.")
 
-        # 직사각형 해상도 (H, W)에 맞게 transforms를 조정합니다.
         self.ldm_transform = transforms.Compose([
             transforms.Resize((self.target_height, self.target_width),
-                              interpolation=transforms.InterpolationMode.BILINEAR),
+                              interpolation=transforms.InterpolationMode.BILINEAR, antialias=True),
             transforms.ToTensor(),  # [0,1], shape (3, H, W)
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])  # [-1,1]
         ])
@@ -114,6 +102,6 @@ class KRadarDataset(Dataset):
 
         return {
             'image': image_tensor,          # (3, 720, 1280)
-            'condition': condition_tensor,  # (2048, 4)
+            'condition': condition_tensor,  # (max_points, 4)
             'file_stem': stem
         }

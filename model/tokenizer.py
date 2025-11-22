@@ -26,9 +26,6 @@ def index_points(points, idx):
 
 
 def farthest_point_sample(xyz, npoint):
-    """
-    가장 멀리 떨어져 있는 점들을 샘플링 (FPS 알고리즘)
-    """
     B, N, C = xyz.shape
     centroids = torch.zeros(B, npoint, dtype=torch.long, device=xyz.device)
     distance = torch.ones(B, N, device=xyz.device) * 1e10
@@ -46,9 +43,6 @@ def farthest_point_sample(xyz, npoint):
 
 
 def query_ball_point(radius, nsample, xyz, new_xyz):
-    """
-    각 Centroid(new_xyz) 주변의 점들을 그룹화 (Ball Query)
-    """
     device = xyz.device
     B, N, C = xyz.shape
     _, S, _ = new_xyz.shape
@@ -87,10 +81,6 @@ class PointNetSetAbstraction(nn.Module):
             new_xyz: (B, npoint, 3)
             new_points: (B, npoint, mlp[-1])
         """
-        xyz = xyz.permute(0, 2, 1)
-        if points is not None:
-            points = points.permute(0, 2, 1)
-        
         # Sampling & Grouping
         if self.group_all:
             new_xyz = torch.zeros(xyz.shape[0], 1, 3, device=xyz.device)  # Dummy
@@ -137,7 +127,7 @@ class RadarPointNetPlusPlus(nn.Module):
         # Set Abstraction Layers
         # npoint: 샘플링할 점 개수 / radius: 반경 / nsample: 반경 내 이웃 개수 / mlp: 채널 변화
         
-        # SA1: 2048 -> 512 points
+        # SA1: {yaml:max_points} -> 512 points
         # in_channel = 3 (xyz) + 1 (intensity) = 4
         self.sa1 = PointNetSetAbstraction(npoint=512, radius=0.2, nsample=32, in_channel=3 + 1, mlp=[64, 64, 128],
                                           group_all=False)
@@ -169,8 +159,3 @@ class RadarPointNetPlusPlus(nn.Module):
         out = self.norm(out)
         
         return out  # 이 결과가 Cross Attention의 encoder_hidden_states로 들어갑니다.
-
-# 사용 예시
-# model = RadarPointNetPlusPlus(sd_hidden_dim=768)
-# input_radar = torch.randn(4, 2048, 4) # Batch=4, Points=2048
-# output = model(input_radar) # (4, 128, 768) -> SD의 text_encoder output 대신 사용

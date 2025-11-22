@@ -63,6 +63,15 @@ def polar_to_cartesian(data: np.ndarray,
     """
     polar(거리, 각도, 고도) 형태의 3D 그리드 데이터를 Cartesian 포인트 클라우드 (N,4)로 변환.
     - data: numpy ndarray, shape (D, T, H) 또는 (distance, theta, height)
+    
+    **NOTE on `coord_normalize` is `False`:**
+    The output matrix from `dpolar_to_cartesian` has the following theoretical value ranges:
+    
+    * **N (Integer):** [0, 10136]  # Number of Points
+    * **x (float32):** [0.0, 255.0]  # Forward coordinate
+    * **y (float32):** [-203.7, 203.7] # Horizontal coordinate
+    * **z (float32):** [0.0, 149.9]  # Vertical coordinate
+    * **value (float32):** [0.0, 1.0] # Value Normalized
     """
     if not isinstance(data, np.ndarray):
         raise TypeError("`data`는 numpy.ndarray 여야 합니다.")

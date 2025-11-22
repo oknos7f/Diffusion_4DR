@@ -1,10 +1,17 @@
 dataset:
-  data_root: "dataset/data"
+  data_root: "C:/Users/jdmdj/Desktop/Diffusion_4DR/dataset/data"
   image_dir: "images"
   condition_dir: "conditions"
 
   condition_threshold: 99
   max_points: 2048 # (1024 ~ 8192)
 
-  target_width: 1280
-  target_height: 720
+  target_width: 688
+  target_height: 384
+
+training:
+  batch_size: 2
+  accumulation_steps: 4
+  learning_rate: 0.00001 # 1e-5
+  num_epochs: 10
+  num_workers: 4
