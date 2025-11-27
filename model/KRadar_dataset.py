@@ -34,7 +34,7 @@ class KRadarDataset(Dataset):
         self.condition_dir = self.data_root / self.config['condition_dir']
         
         self.threshold = self.config['condition_threshold']
-        self.max_points = self.config['max_points']
+        self.num_points = self.config['num_points']
 
         self.target_width = self.config.get('target_width', 680)
         self.target_height = self.config.get('target_height', 384)
@@ -76,32 +76,31 @@ class KRadarDataset(Dataset):
 
         polar_matrix = np.load(condition_path).astype(np.float32)
 
-        # convert polar grid -> voxel points (M, 4), N은 약 1400~9800 가변
-        cartesian_matrix = dp.polar_to_cartesian(polar_matrix, threshold=self.threshold, coord_normalize=True)
+        cartesian_matrix = (
+            dp.polar_to_cartesian(polar_matrix,num_points=self.num_points))
         voxel_points = dp.voxelize(cartesian_matrix, agg='max')
         num_points = voxel_points.shape[0]
         
         if num_points == 0:
             raise Exception(f"유효한 데이터가 아닙니다: {condition_path}")
-        elif num_points >= self.max_points:
+        elif num_points > self.num_points:
             # random sampling if too many points
             # consider slice by value(Intensity) later maybe
-            choice_idx = np.random.choice(num_points, self.max_points, replace=False)
-            fixed_points = voxel_points[choice_idx, :]
-        else:
+            choice_idx = np.random.choice(num_points, self.num_points, replace=False)
+            voxel_points = voxel_points[choice_idx, :]
+        elif num_points < self.num_points:
             # duplicate points if too few points
-            choice_idx = np.random.choice(num_points, self.max_points, replace=True)
-            fixed_points = voxel_points[choice_idx, :]
+            choice_idx = np.random.choice(num_points, self.num_points, replace=True)
+            voxel_points = voxel_points[choice_idx, :]
             
             # consider Zero padding later
-            # fixed_points = np.zeros((self.max_points, 4), dtype=np.float32)
+            # fixed_points = np.zeros((self.num_points, 4), dtype=np.float32)
             # fixed_points[:num_points, :] = voxel_points
         
-        
-        condition_tensor = torch.from_numpy(fixed_points).float()
+        condition_tensor = torch.from_numpy(voxel_points).float()
 
         return {
             'image': image_tensor,          # (3, 720, 1280)
-            'condition': condition_tensor,  # (max_points, 4)
+            'condition': condition_tensor,  # (num_points, 4)
             'file_stem': stem
         }

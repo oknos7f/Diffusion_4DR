@@ -4,7 +4,7 @@ dataset:
   condition_dir: "conditions"
 
   condition_threshold: 99
-  max_points: 2048 # (1024 ~ 8192)
+  num_points: 2048 # (1024 ~ 8192)
 
   target_width: 688
   target_height: 384

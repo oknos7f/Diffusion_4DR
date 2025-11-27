@@ -1,12 +1,6 @@
 import numpy as np
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 import PIL.Image as Image
-
-
-# example usage:
-# data = np.load(data_path, mmap_mode='r')
-# data = ct.polar_to_cartesian(data, threshold=99)
-# data = ct.voxelize(data, agg='max')
 
 
 def crop_image_half(image: Image.Image, left: bool = True) -> Image.Image:
@@ -15,126 +9,94 @@ def crop_image_half(image: Image.Image, left: bool = True) -> Image.Image:
     """
     if not hasattr(image, "size"):
         raise TypeError("`image`는 PIL Image 여야 합니다.")
-    width, height = image.size
+    width, elevation = image.size
     half_width = width // 2  # 2560, 720 -> 1280, 720
     
     if left:
-        return image.crop((0, 0, half_width, height))
+        return image.crop((0, 0, half_width, elevation))
     else:
-        return image.crop((half_width, 0, width, height))
-
-
-def normalization_value(points: np.ndarray, threshold: float = 0.3) -> np.ndarray:
-    if points.ndim != 2 or points.shape[1] < 4:
-        raise ValueError("입력은 (N, >=4) 형태의 numpy 배열이어야 합니다.")
-    
-    # print(threshold)
-    
-    # 1. Threshold 적용 (threshold 이상인 포인트만 남김)
-    mask_threshold = points[:, 3] >= threshold
-    arr = points[mask_threshold].copy()
-    
-    original_count = arr.shape[0]
-    
-    if original_count == 0:
-        raise ValueError(f"threshold 값이 너무 높습니다. (남은 포인트 0개): {threshold}")
-    
-    power = arr[:, 3].astype(np.float32)
-    
-    # 정규화 (Min-Max Scaling)
-    p_min = power.min()
-    p_max = power.max()
-    
-    if p_max - p_min == 0:
-        arr[:, 3] = 0.0
-    else:
-        # Min-Max 정규화: (power - min) / (max - min)
-        arr[:, 3] = (power - p_min) / (p_max - p_min)
-    
-    return arr
+        return image.crop((half_width, 0, width, elevation))
 
 
 def polar_to_cartesian(data: np.ndarray,
-                       distance: int = None,
-                       theta: int = None,
-                       height: int = None,
-                       threshold: float = 99,
-                       coord_normalize: bool = False) -> np.ndarray:
+                       range_bins: int = None,
+                       azimuth_bins: int = None,
+                       elevation_bins: int = None,
+                       num_points: int = 1024,
+                       coord_normalize: bool = True) -> np.ndarray:
     """
-    polar(거리, 각도, 고도) 형태의 3D 그리드 데이터를 Cartesian 포인트 클라우드 (N,4)로 변환.
-    - data: numpy ndarray, shape (D, T, H) 또는 (distance, theta, height)
-    
-    **NOTE on `coord_normalize` is `False`:**
-    The output matrix from `dpolar_to_cartesian` has the following theoretical value ranges:
-    
-    * **N (Integer):** [0, 10136]  # Number of Points
-    * **x (float32):** [0.0, 255.0]  # Forward coordinate
-    * **y (float32):** [-203.7, 203.7] # Horizontal coordinate
-    * **z (float32):** [0.0, 149.9]  # Vertical coordinate
-    * **value (float32):** [0.0, 1.0] # Value Normalized
+    polar(거리, 각도, 고도) 3D 그리드 데이터에서 상위 num_points개의 포인트를 추출하여
+    Cartesian (N, 4) [x, y, z, power]로 변환.
+
+    threshold 없이 무조건 Power가 높은 순서대로 num_points개를 채웁니다.
     """
     if not isinstance(data, np.ndarray):
         raise TypeError("`data`는 numpy.ndarray 여야 합니다.")
     if data.ndim != 4 or data.shape[0] != 2:
         raise ValueError("`data`는 (2, D, T, H) 형태의 4차원 복소수 텐서여야 합니다.")
     
-    data_mag = np.sqrt(data[0] ** 2 + data[1] ** 2)
+    # 1. Power 데이터 준비
+    raw_power = data[0]
+    # doppler = data[1] # 현재 미사용
     epsilon = 1e-6
-    data_mag = 10 * np.log10(data_mag + epsilon)
+    power = 10 * np.log10(raw_power + epsilon)  # dB 변환
     
-    threshold_dB = np.percentile(data_mag.flatten(), threshold)
+    d, t, h = power.shape
+    range_val = range_bins or d
+    azimuth_val = azimuth_bins or t
+    elevation_val = elevation_bins or h
     
-    d, t, h = data_mag.shape
-    distance = distance or d
-    theta = theta or t
-    height = height or h
-
-    # 1D 좌표 생성 (인덱스를 각도로 또는 거리 단위로 해석)
-    rho_1d = np.linspace(0.0, distance - 1.0, distance)
-    # theta를 양/음 대칭으로 배치 (degrees)
-    theta_max_deg = (theta - 1) / 2.0
-    theta_1d = np.deg2rad(np.linspace(-theta_max_deg, theta_max_deg, theta))
-    # phi는 0..height-1을 degree로 간주 (원래 코드 유지)
-    phi_1d = np.deg2rad(np.linspace(0.0, height - 1.0, height))
-
-    rho_grid, theta_grid, phi_grid = np.meshgrid(rho_1d, theta_1d, phi_1d, indexing='ij')
-
-    # 구면 -> 직교 투영
-    r_proj = rho_grid * np.cos(phi_grid)
-    x = r_proj * np.cos(theta_grid)
-    y = r_proj * np.sin(theta_grid)
-    z = rho_grid * np.sin(phi_grid)
-
-    grid_shape = x.shape
-    num_points = int(np.prod(grid_shape))
-
-    data_flat = data_mag.flatten()
-    if data_flat.shape[0] < num_points:
-        raise ValueError("입력 데이터의 크기가 좌표 그리드 크기보다 작습니다.")
-
-    values = data_mag.flatten()
-
-    cartesian_points = np.stack([
-        x.flatten(),
-        y.flatten(),
-        z.flatten(),
-        values
-    ], axis=-1)
+    flat_power = power.ravel()
+    total_elements = flat_power.size
+    
+    target_k = min(num_points, total_elements)
+    
+    if target_k <= 0:
+        return np.zeros((0, 4), dtype=np.float32)
+    
+    top_indices_flat = np.argpartition(flat_power, -target_k)[-target_k:]
+    
+    sorted_args = np.argsort(flat_power[top_indices_flat])[::-1]
+    top_indices_flat = top_indices_flat[sorted_args]
+    
+    idx_d, idx_t, idx_h = np.unravel_index(top_indices_flat, power.shape)
+    valid_power = flat_power[top_indices_flat].astype(np.float32)
+    
+    p_min = valid_power.min()
+    p_max = valid_power.max()
+    
+    if p_max - p_min == 0:
+        valid_power[:] = 0.0
+    else:
+        valid_power = (valid_power - p_min) / (p_max - p_min)
+    
+    rho_1d = np.linspace(0.0, range_val - 1.0, range_val)
+    r_vec = rho_1d[idx_d]
+    
+    azimuth_max_deg = (azimuth_val - 1) / 2.0
+    azimuth_1d = np.deg2rad(np.linspace(-azimuth_max_deg, azimuth_max_deg, azimuth_val))
+    a_vec = azimuth_1d[idx_t]
+    
+    phi_1d = np.deg2rad(np.linspace(0.0, elevation_val - 1.0, elevation_val))
+    p_vec = phi_1d[idx_h]
+    
+    r_proj = r_vec * np.cos(p_vec)
+    x = r_proj * np.cos(a_vec)
+    y = r_proj * np.sin(a_vec)
+    z = r_vec * np.sin(p_vec)
+    
+    cartesian_points = np.stack([x, y, z, valid_power], axis=-1)
     
     if coord_normalize:
-        # 좌표 정규화 (-1 ~ 1)
         x_min, x_max = 0.0, 255.0
         y_min, y_max = -203.7, 203.7
         z_min, z_max = 0.0, 149.9
         
-        cartesian_points[:, 0] = ((cartesian_points[:, 0] - x_min) / (x_max - x_min)) * 2.0 - 1.0
-        cartesian_points[:, 1] = ((cartesian_points[:, 1] - y_min) / (y_max - y_min)) * 2.0 - 1.0
-        cartesian_points[:, 2] = ((cartesian_points[:, 2] - z_min) / (z_max - z_min)) * 2.0 - 1.0
-        
-    if threshold and threshold > 0.0:
-        return normalization_value(cartesian_points, threshold=threshold_dB)
-    else:
-        return cartesian_points
+        cartesian_points[:, 0] = (cartesian_points[:, 0] - x_min) / (x_max - x_min) * 2.0 - 1.0
+        cartesian_points[:, 1] = (cartesian_points[:, 1] - y_min) / (y_max - y_min) * 2.0 - 1.0
+        cartesian_points[:, 2] = (cartesian_points[:, 2] - z_min) / (z_max - z_min) * 2.0 - 1.0
+    
+    return cartesian_points
 
 
 def voxelize(points: np.ndarray,
