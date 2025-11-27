@@ -10,8 +10,8 @@ import os
 from diffusers import AutoencoderKL, UNet2DConditionModel, DDPMScheduler
 
 # Custom Modules
-from tokenizer import RadarPointNetPlusPlus
-from KRadar_dataset import KRadarDataset
+from model.tokenizer import RadarPointNetPlusPlus
+from model.KRadar_dataset import KRadarDataset
 
 
 def load_config(config_path: str) -> dict:
@@ -20,13 +20,11 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def main():
+def main(config_path: str):
     # ==========================================
     # 0. 설정 (Configuration)
     # ==========================================
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    config_path = r'C:\Users\jdmdj\Desktop\Diffusion_4DR\config\config.yaml'
     
     try:
         config = load_config(config_path).get('training', {})
@@ -188,7 +186,3 @@ def main():
             print(f"💾 Model saved: {save_path}")
     
     print("🎉 Training Finished!")
-
-
-if __name__ == "__main__":
-    main()

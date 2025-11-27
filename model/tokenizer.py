@@ -129,11 +129,11 @@ class RadarPointNetPlusPlus(nn.Module):
         
         # SA1: {yaml:max_points} -> 512 points
         # in_channel = 3 (xyz) + 1 (intensity) = 4
-        self.sa1 = PointNetSetAbstraction(npoint=512, radius=0.2, nsample=32, in_channel=3 + 1, mlp=[64, 64, 128],
+        self.sa1 = PointNetSetAbstraction(npoint=512, radius=0.02, nsample=32, in_channel=3 + 1, mlp=[64, 64, 128],
                                           group_all=False)
         
         # SA2: 512 -> 128 points (여기서 남은 128개를 토큰으로 씁니다!)
-        self.sa2 = PointNetSetAbstraction(npoint=128, radius=0.4, nsample=64, in_channel=128 + 3, mlp=[128, 128, 256],
+        self.sa2 = PointNetSetAbstraction(npoint=128, radius=0.1, nsample=64, in_channel=128 + 3, mlp=[128, 128, 256],
                                           group_all=False)
         
         # Final Projection to SD Dimension
