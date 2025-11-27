@@ -1,16 +1,8 @@
-spconv-cu130
+--extra-index-url https://download.pytorch.org/whl/cu130
 torch
 torchvision
 diffusers[torch]
-opencv-python
-scikit-image
-numba
-einops
-nms
-matplotlib
+numpy
 pillow
-tensorboard
 PyYAML
-easydict
-setuptools
-PyQt5
+matplotlib
