@@ -1,2 +1,4 @@
-# Diffusion_4DR
-4D Radar Conditional Latent Diffusion Model
+# 4D Radar-Conditioned Cross-Modal Latent Diffusion Model (Benchmark Suite)
+
+
+python -m src.trainer --config config.yaml

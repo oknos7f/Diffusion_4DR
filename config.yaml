@@ -1,17 +1,28 @@
-dataset:
-  data_root: "/workspace2/dongmin/dataset"
-  image_dir: "images"
-  condition_dir: "conditions"
-
-  condition_threshold: 99
-  num_points: 2048 # (1024 ~ 8192)
-
-  target_width: 688
-  target_height: 384
+hardware:
+  device: "cuda"
+  mixed_precision: "bf16"
+  gradient_checkpointing: false
+  use_8bit_adam: false
+  enable_sdpa: true
+  dataloader_num_workers: 4
 
 training:
-  batch_size: 2
-  accumulation_steps: 4
-  learning_rate: 0.00001 # 1e-5
-  num_epochs: 10
-  num_workers: 4
+  batch_size: 8
+  micro_batch_size: 4
+  learning_rate: 2.0e-5
+  max_train_steps: 11260
+  gradient_accumulation_steps: 2
+
+data:
+  rpc_num_points: 4096
+  rgb_raw_width: 2560
+  rgb_raw_height: 720
+  rgb_target_resolution: 512
+  dataset_size: 9008
+
+model:
+  backbone: "sd15"                # Diffusion backbone choice: "sd15" (Stable Diffusion 1.5) or "sd3" (Stable Diffusion 3)
+  encoder: "pointnet"            # Radar feature encoder: "pointnet" (PointNet++) or "pointpillars"
+  unet_frozen: true
+  vae_frozen: true
+  train_cross_attention_only: true
