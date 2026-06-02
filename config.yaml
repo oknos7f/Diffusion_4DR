@@ -1,5 +1,5 @@
 dataset:
-  data_root: "C:/Users/jdmdj/Desktop/Diffusion_4DR/dataset/data"
+  data_root: "/workspace2/dongmin/dataset"
   image_dir: "images"
   condition_dir: "conditions"
 
