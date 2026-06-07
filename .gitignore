@@ -1,0 +1,13 @@
+.cache
+*.log
+.env
+.venv
+venv/
+__pycache__/
+*.pyc
+.idea/
+dataset/
+
+*.npy
+*.png
+*.zip

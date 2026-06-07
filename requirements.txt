@@ -1,0 +1,16 @@
+torch
+torchvision
+diffusers[torch]
+transformers
+accelerate
+bitsandbytes
+numpy
+pillow
+PyYAML
+matplotlib
+tqdm
+scipy
+ftfy
+tensorboard
+safetensors
+optuna
