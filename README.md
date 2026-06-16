@@ -2,36 +2,10 @@
 
 Diffusion_4DR is a research project exploring the use of Diffusion Models conditioned on 4D Radar data for high-fidelity sensor data generation and enhancement. By leveraging the sparse yet robust nature of radar point clouds, this project generates corresponding visual representations using state-of-the-art diffusion backbones.
 
-## 🚀 Key Features
+## Samples
+<img width="2058" height="1030" alt="sample_6000" src="https://github.com/user-attachments/assets/ca41a6a9-eac9-4052-b4cd-c00aa2456165" />
+<img width="2058" height="1030" alt="image" src="https://github.com/user-attachments/assets/532c2aba-2174-45b1-b2a8-21d0ab325097" />
 
-- **Multi-Backbone Support**: Seamlessly switch between **Stable Diffusion 1.5** and **Stable Diffusion 3**.
-- **Advanced Radar Encoders**:
-  - **PointNet++**: Hierarchical feature learning for point clouds.
-  - **PointPillars**: Efficient pillar-based encoding for faster inference and training.
-- **Robust Training Pipeline**:
-  - Powered by Hugging Face `diffusers` and `accelerate`.
-  - Supports **Mixed Precision (bf16)** and **8-bit AdamW** for memory efficiency.
-  - EMA (Exponential Moving Average) model weights for stable generation.
-- **Automated Hyperparameter Optimization (HPO)**:
-  - Integrated **Optuna** for automated searching of optimal learning rates, batch sizes, and architectural parameters.
-  - Optimization objective: **FID (Fréchet Inception Distance)**.
-- **Evaluation Metrics**: Automated calculation of **FID** and **Inception Score (IS)**.
-
-## 📁 Project Structure
-
-```text
-Diffusion_4DR/
-├── config.yaml          # Main configuration for hardware, training, and model
-├── hpo_runner.py        # Entry point for Hyperparameter Optimization
-├── src/
-│   ├── dataset.py       # Data loading and Polar-to-Cartesian transformation
-│   ├── models.py        # Model factory (SD1.5 vs SD3)
-│   ├── trainer.py       # Core training and evaluation logic
-│   ├── encoders/        # Radar feature extraction modules (PointNet++, PointPillars)
-│   └── models_arch/     # Radar-conditioned UNet/Transformer architectures
-├── dataset/             # (Not included) Expected data directory
-└── requirements.txt     # Python dependencies
-```
 
 ## 🛠️ Installation
 
@@ -72,13 +46,6 @@ To run the automated HPO pipeline using Optuna:
 ```bash
 python hpo_runner.py
 ```
-
-The HPO script will:
-1. Pre-process polar radar data into Cartesian points (cached for speed).
-2. Generate static data splits.
-3. Pre-calculate Inception features for the real dataset.
-4. Run multiple trials searching for the best backbone, encoder, and training parameters.
-5. Report the best FID and calculate the final Inception Score.
 
 ## ⚙️ Configuration
 
